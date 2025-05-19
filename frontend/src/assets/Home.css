@@ -1,0 +1,53 @@
+.home-content {
+    width: 100%;
+}
+
+.home-img {
+    height: 500px;
+    width: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.arrows {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    top: 60%;
+    left: 50%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.arrows div {
+    margin: 2rem;
+}
+
+.arrows div i {
+    font-size: 3rem;
+    color: white;
+}
+
+ /* quote */
+ .quote
+ {
+     display:flex;
+     height:50rem;
+     width:100%;
+     justify-content: center;
+     align-items: center;
+ }
+ .quote-img{
+     width:50%;
+     height:100%;
+     padding:1rem;
+ }
+
+ .quote-img img{
+     height:100%;
+     width:100;
+     
+ }
+ .quote-text{
+     font:600;
+ }
