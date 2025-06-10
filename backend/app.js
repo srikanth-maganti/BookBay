@@ -4,15 +4,18 @@ const mongoose=require("mongoose");
 const cors = require("cors");
 const bcrypt=require("bcrypt");
 const jwt=require("jsonwebtoken");
+const dotenv=require("dotenv");
 const methodoverride=require("method-override");
 const ExpressError=require("./ExpressError.js");
 const asyncWrap=require("./middleware/asyncWrap.js");
 const bookschema=require("./schema.js");
-
+const { OAuth2Client } = require("google-auth-library");
 const User=require("./models/user.js");
 const Book=require("./models/book.js");
 const Cart=require("./models/cart.js");
+dotenv.config();
 const app=express();
+
 
 async function main()
 {
@@ -37,12 +40,14 @@ app.use(cors());  // Enable CORS for all routes
 // If you want to allow only specific origins:
 app.use(
   cors({
-    origin: "http://localhost:5175", // Allow only your frontend
+    origin: "http://localhost:5173", // Allow only your frontend
     methods: "GET, POST, PUT, DELETE",
-    allowedHeaders: "Content-Type",
+    allowedHeaders: ["Content-Type","Authorization"],
   })
 );
 
+
+const client = new OAuth2Client(process.env.CLIENT_ID);
 function validatebook(req,res,next)
 {
     let {error}=bookschema.validate(req.body);
@@ -57,37 +62,57 @@ function validatebook(req,res,next)
     }
 }
 
-//home page
-// app.get("/",asyncWrap(async (req,res)=>{
-//     let data=await Book.find({});
-//     res.json(data);
-// }))
 
-
-//books 
-app.get("/books",asyncWrap(async(req,res)=>{
-
-    let {category}=req.query;
-    console.log(category);
-    let data= null;
-    if(category=="All")
-    {
-       data=await Book.find({});
+const authenticate_user=(req, res, next) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    
+    if(!token)
+    {   
+        return res.status(401).send("Access Denied: No Token Provided");
     }
-    else
-    {
-        data=await Book.find({Category:category});
+
+    const decoded=jwt.verify(token,process.env.JWT_SECRET, (err, user) => {
         
+        if (err) {
+            console.log(err.message);
+            return res.status(403).send("Invalid Token");
+        }
+        req.user_id=user.userId;
+        
+        
+        
+    })
+    next();
+}
 
+
+
+
+app.get("/books", asyncWrap(async (req, res) => {
+    const { category, search } = req.query;
+    let data;
+    
+    if (search) {
+        data = await Book.find({
+            $or: [
+                { Title: { $regex: search, $options: "i" } },
+                { Author: { $regex: search, $options: "i" } },
+                { Category: { $regex: search, $options: "i" } }
+            ]
+        });
+    } else if (category && category !== "All") {
+        data = await Book.find({ Category: category });
+    } else {
+        data = await Book.find({});
     }
-    if(!data)
-    {
-        throw new ExpressError(400,"Data Not Found");
+
+    if (!data || data.length === 0) {
+        return res.status(404).json({ message: "No books found" });
     }
-   
+
     res.json(data);
- 
-}))
+}));
+
 
 app.get("/books/show/:id",asyncWrap(async(req,res)=>{
     let {id}=req.params;
@@ -97,27 +122,17 @@ app.get("/books/show/:id",asyncWrap(async(req,res)=>{
     {
         throw new ExpressError(400,"Book Not Found");
     }
+    
     res.json(data);
 }))
 
-
-
-
-app.post("/books/search",asyncWrap(async(req,res)=>{
-
-    let x=req.body.search;
+app.get("/books/trending",asyncWrap(async(req,res)=>{
     
-    let data=await book.find({$or :[{Title:{ $regex: `^${x}$`, $options: "i" }},{Category:{ $regex: `^${x}$`, $options: "i" }},{Author:{ $regex: `^${x}$`, $options: "i" }}]});
-    if(!data)
-    {
-        throw new ExpressError(400,"Book Not Found");
-    }
-    res.json(data);
 }))
 
 
 app.post('/books',validatebook,asyncWrap(async(req,res)=>{
-    let newbook=new book(req.body.book);
+    let newbook=new Book(req.body.book);
     newbook.save();
     res.redirect("/books");
 }))
@@ -132,99 +147,185 @@ app.post("/seller",(req,res)=>{
     res.render("./pages/sell.ejs");
 
 })
-app.get("/cart/payment",(req,res)=>{
+app.get("/cart/payment",authenticate_user,(req,res)=>{
     res.render("./pages/payment.ejs");
 })
-
-//cart
-app.get("/cart",asyncWrap(async(req,res)=>{
-    let data=await cart.find({});
-    res.render("./pages/cart.ejs",{data});
-}))
-
-app.post("/cart/:id", asyncWrap(async (req, res) => {
+app.get("/cart", authenticate_user, asyncWrap(async (req, res) => {
+  const cart = await Cart.findOne({ userId: req.user_id }).populate("items.book"); // Optional: populate book details
     
-        const { id } = req.params;
-        const bookData = await book.findById(id);
-
-        if (!bookData) {
-            return res.status(404).send("Book not found");
-        }
-
-        const cartItem = await cart.findById(id);
-
-        if (!cartItem) {
-            const newCartItem = { ...bookData.toObject(), Count: 1 };
-           
-            await cart.insertMany([newCartItem]);
-            console.log(`Added new book with id: ${id} to cart`);
-        } else {
-            const updatedCount = cartItem.Count + 1;
-            await cart.findByIdAndUpdate(id, { Count: updatedCount });
-            
-        }
-
-        res.redirect(`/books/show/${id}`);
+  if (!cart || cart.items.length === 0) {
     
-}))
+    return res.json({items:[]});
+  }
 
-app.patch("/cart/:id",asyncWrap(async(req,res)=>{
-    let {id}=req.params;
+  res.json(cart);
+}));
+
+
+app.post("/cart/:id", authenticate_user, asyncWrap(async (req, res) => {
+    const { id } = req.params;
+    const user_id = req.user_id;
     
+    // Check if book exists
+    const bookData = await Book.findById(id);
+    if (!bookData) {
+        console.log("book not found");
+        return res.status(404).send("Book not found");
+    }
 
-    let count=req.body.count;
+    // Check if cart exists for the user
+    let userCart = await Cart.findOne({ userId: user_id });
+
+    if (!userCart) {
+        // If cart doesn't exist, create a new one
+        const newCart = new Cart({
+            userId: user_id,
+            items: [{ book: id, count: 1 }]
+        });
+        await newCart.save();
+        
+        return res.send("Cart created and book added");
+    }
+
+    // If cart exists, check if book is already in the cart
+    const itemIndex = userCart.items.findIndex(item => item.book.toString() === id);
+
+    if (itemIndex > -1) {
+        // Book exists in cart, increment count
+        userCart.items[itemIndex].count += 1;
+    } else {
+        // Book not in cart, add it
+        userCart.items.push({ book: id, count: 1 });
+    }
+
+    await userCart.save();
     
-    await cart.findByIdAndUpdate(id,{Count:count});
-    res.redirect("/cart");
-}))
+    res.send("Book added updated in cart successfully");
+}));
 
-app.delete("/cart/:id",asyncWrap(async(req,res)=>{
-    let {id}=req.params;
-    await cart.findByIdAndDelete(id);
-    res.redirect("/cart");
-}))
+
+app.patch("/cart/:bookId", authenticate_user, asyncWrap(async (req, res) => {
+    const { bookId } = req.params;
+    const { action } = req.body;
+    const userId = req.user_id;
+
+    const incValue = action === "increment" ? 1 : action === "decrement" ? -1 : null;
+    if (incValue === null) return res.status(400).send("Invalid action");
+
+    const result = await Cart.updateOne(
+        { userId, "items.book": bookId },
+        { $inc: { "items.$.count": incValue } }
+    );
+
+    if (result.modifiedCount === 0) {
+        return res.status(404).send("Book not found in cart");
+    }
+
+    res.send(`Book count ${action}ed successfully`);
+}));
+
+app.delete("/cart/:id", authenticate_user, asyncWrap(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user_id;
+
+    const result = await Cart.updateOne(
+        { userId },
+        { $pull: { items: { book:id } } }
+    );
+
+    if (result.modifiedCount === 0) {
+        return res.status(404).send("Book not found in cart");
+    }
+
+    res.send("Book removed from cart successfully");
+}));
+
 
 
 //authentication
-app.get("/login",(req,res)=>{
-    res.render("./pages/login.ejs");
-})
+
+app.post("/api/auth/google", async (req, res) => {
+  const { token } = req.body;
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, name } = payload;
+
+    // Check if user exists
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({ fullname:name,email:email });
+    }
+
+    // Create JWT token for session
+    const appToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+    console.log("success",appToken);
+    res.json({ token: appToken });
+
+  } catch (err) {
+    console.error(err);
+    res.status(401).json({ error: "Invalid token" });
+  }
+});
 
 app.post("/login",async(req,res)=>{
     let {email,password}=req.body;
+    
     let user=await User.findOne({email});
     if(!user)
     {
-        throw new ExpressError(400,"Invalid Email");
+        return res.status(400).send("User not found with this email");
     }
     const passwordmatch=await bcrypt.compare(password,user.password);
     if(!passwordmatch)
     {
-        throw new ExpressError(400,"Invalid Password");
+       return res.status(400).send("Invalid Password");
     }
     
-    const token = jwt.sign({ userId: user._id }, 'your-secret-key', {
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
         expiresIn: '1h',
         });
-    res.send(token);
+    
+    res.json({token});
 })
 
-app.get("/signup",async(req,res)=>{
-    
-    res.render("./pages/signup.ejs");
-})
 
-app.post("/signup",async(req,res)=>{
-    let {fullname,email,password}=req.body;
-    console.log(req.body);
-    let newpassword=await bcrypt.hash(password,10);
-    
-    let user={fullname,email,password:newpassword};
+app.post("/signup", asyncWrap(async (req, res) => {
+  let { fullname, email, password } = req.body;
 
-    let newuser=new User(user);
-    await newuser.save();
-    
-})
+  let existingUser = await User.findOne({ email: email });
+  if (existingUser) {
+    console.log("exist");
+    return res.status(400).send("User already exists with this email");
+  }
+
+  let hashedPassword = await bcrypt.hash(password, 10);
+
+  let newUser = new User({
+    fullname,
+    email,
+    password: hashedPassword
+  });
+
+  await newUser.save();
+
+  // No need to fetch again, you already have the user
+  let token = jwt.sign(
+    { userId: newUser._id },
+    process.env.JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+
+  console.log(token);
+  res.json({ token });
+}));
+
 
 
 
@@ -253,7 +354,7 @@ app.use((err,req,res,next)=>{
     
     let{status=500,message="Page not found"}=err;
     
-    res.status(status).render("./pages/error.ejs",{message});
+    res.send(message);
 })
 
 app.listen(3000,()=>{

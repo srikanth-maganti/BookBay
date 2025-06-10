@@ -1,49 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import BookCard from "../components/BookCard.jsx"
-import "../assets/Books.css"
-function Books()
-{   
-    const [books,setBooks]=useState([]);
-    const [category,setCategory]=useState("All");
-    useEffect(()=>{
-       
-        const fetchdata=async ()=>{
-            
-            const response=await fetch(`http://localhost:3000/books?category=${category}`);
-            const result=await response.json();
-            setBooks(result);
-        }
-        fetchdata();
-    },[category]);
+import { useNavigate, useLocation } from 'react-router-dom';
+import BookCard from "../components/BookCard.jsx";
+import "../assets/Books.css";
 
-    
-    return(
-        <div className="container-fluid contain">
-        <div className="browse-layout">
-            
-            <div className="categories-sidebar">
-                <h3 className="categories-title">Categories</h3>
-                <div className="category-list">
-                    <button className="category-btn btn" id="All" onClick={()=>{setCategory("All")}}>All Books</button>
-                    <button className="category-btn btn" id="Science Fiction" onClick={()=>{setCategory("Science Fiction")}}>Science Fiction</button>
-                    <button className="category-btn btn" id="Comics" onClick={()=>setCategory("Comics")}>Comics</button>
-                    <button className="category-btn btn" id="Mystery" onClick={()=>setCategory("Mystery")}>Mystery</button>
-                    <button className="category-btn btn" id="classNameic" onClick={()=>{setCategory("Classic")}}>Classic</button>
-                    <button className="category-btn btn" id="Fantasy" onClick={()=>{setCategory("Fantasy")}}>Fantasy</button>                    <button className="category-btn btn" id="Science" onClick={()=>{setCategory("Science")}}>Science</button>
-                    <button className="category-btn btn" id="Romance" onClick={()=>{setCategory("Movies")}}>Movies</button>
+const useQuery = () => new URLSearchParams(useLocation().search);
+
+function Books() {
+    const navigate = useNavigate();
+    const query = useQuery();
+    const location = useLocation();
+
+    const initialSearch = query.get("search") || "";
+    const initialCategory = query.get("category") || "";
+
+    const [search, setSearch] = useState(initialSearch);
+    const [category, setCategory] = useState(initialSearch ? "" : initialCategory);
+    const [books, setBooks] = useState([]);
+
+    // Fetch books when search or category changes
+    useEffect(() => {
+        const fetchData = async () => {
+            const url = new URL("http://localhost:3000/books");
+
+            if (search) url.searchParams.append("search", search);
+            else if (category) url.searchParams.append("category", category);
+
+            try {
+                const res = await fetch(url.toString());
+                if (!res.ok) throw new Error("Data Not Found");
+                const data = await res.json();
+                setBooks(data);
+            } catch (error) {
+                console.error(error);
+                setBooks([]);
+            }
+        };
+
+        fetchData();
+    }, [search, category]);
+
+    // Sync local state with URL query params
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const searchParam = params.get("search") || "";
+        const categoryParam = params.get("category") || "";
+
+        setSearch(searchParam);
+        setCategory(searchParam ? "" : categoryParam);
+    }, [location.search]);
+
+    // Handle category click
+    const handleCategoryClick = (cat) => {
+        setCategory(cat);
+        setSearch("");
+        navigate(`/books?category=${encodeURIComponent(cat)}`);
+    };
+
+    return (
+        <div className="books-content w-100">
+            <div className="browse-layout">
+                <div className="categories-sidebar">
+                    <h3 className="categories-title">Categories</h3>
+                    <div className="category-list">
+                        {["All", "Science Fiction", "Comics", "Mystery", "Classic", "Fantasy", "Science", "Movies"].map((cat) => (
+                            <button
+                                key={cat}
+                                className={`category-btn btn ${category === cat ? "active" : ""}`}
+                                onClick={() => handleCategoryClick(cat)}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="books-grid">
+                    {books.map((data) => <BookCard key={data._id} book={data} />)}
                 </div>
             </div>
-     
-             
-            <div className="books-grid">
-                {
-                    books.map((data)=>(<BookCard book={data}/>))
-                }
-            </div>
         </div>
-     </div>
-
-    )
+    );
 }
 
-export default Books
+export default Books;

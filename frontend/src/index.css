@@ -1,10 +1,11 @@
-
+@import "tailwindcss";
+html {
+  scroll-behavior: smooth; 
+}
 
 body {
   margin: 0; /* Removes default browser margin */
   padding: 0; /* Removes default browser padding */
-  display: flex; /* Enables flexbox for layout */
-  flex-direction: column; /* Aligns children in a column layout */
   height: 100vh; /* Full viewport height */
   font-family: 'Arial', sans-serif; /* Sets a clean default font */
   background-color: #f8f9fa; /* Light background color for a modern look */
@@ -13,8 +14,8 @@ body {
 }
 
 
-html {
-  scroll-behavior: smooth; 
+.content{
+  margin-top:7rem;
 }
 
 .navbar {
@@ -22,12 +23,7 @@ html {
   background-color: #f8f9fa;
 }
 
-.main-container{
-  flex:1;
-  width:100%;
-  margin-top:7.5rem;
-  margin-bottom:1rem;
-}
+
 
 
 /* footer */
@@ -35,8 +31,8 @@ html {
   background-color: #232f3e;
   color: #ffffff;
   padding: 40px 20px;
-  position: static;
-  bottom:0px;
+  /* position:relative;
+  bottom:0px; */
   
   
 }

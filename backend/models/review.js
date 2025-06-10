@@ -4,5 +4,5 @@ const reviewSchema=new mongoose.Schema({
     
 })
 
-const reviews=mongoose.model("review",reviewSchema);
-module.exports=reviews;
+const Review=mongoose.model("Review",reviewSchema);
+module.exports=Review;

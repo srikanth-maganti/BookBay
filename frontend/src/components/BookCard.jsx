@@ -1,12 +1,14 @@
 import React from 'react'
+import {Link} from 'react'
+import "../assets/BookCard.css"
 function BookCard({book})
 {
     return (
-        <div className="book-card">
+            <div className="book-card my-2">
                         <div className="book-image">
                             <img src={book.Image} alt={book.Title}/>
                              <div className="quick-actions">
-                                <a className="quick-view btn" href="/books/show/+{book._id}">Quick View</a>
+                                <a className="quick-view btn" href={`/books/show/${book._id}`} >Quick View  </a>
                             </div> 
                         </div>
                         <div className="book-info">
@@ -16,7 +18,7 @@ function BookCard({book})
                                 <span className="book-price">₹ {book.Price}</span>
                             </div>
                         </div>
-                    </div>
+            </div>
     )
 }
 export default BookCard

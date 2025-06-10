@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
-function Payment() {
-    return ( 
-   
-    
-        <div>Payment</div>
+import React from 'react';
 
-     );
+function Payment(){
+    return (
+        <div>payment</div>
+    )
 }
 
 export default Payment;

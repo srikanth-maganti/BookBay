@@ -1,6 +1,6 @@
 const mongoose=require("mongoose");
 const initdata=require("./data.js");
-const book=require("../models/book.js");
+const books=require("../models/book.js");
 
 
 async function main()
@@ -18,8 +18,8 @@ main()
 
 async function insertdb()
 {
-    await book.deleteMany({});
-    await book.insertMany(initdata);
+    await books.deleteMany({});
+    await books.insertMany(initdata);
 
 }
 

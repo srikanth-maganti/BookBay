@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import "../assets/Sell.css"
 function Sell() {
     return ( 
-        <div class="form-container">
+        <div class="form-content">
         <form action="/books" method="post">
             <label for="title" class="form-label">Title:</label>
             <input type="text"  id="title" name="book[Title]"  class="form-control" required/>

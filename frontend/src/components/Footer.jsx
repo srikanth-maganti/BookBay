@@ -3,7 +3,7 @@ function Footer()
 {
     return(
         
-<footer className="footer">
+<footer className="footer text-center border-top mt-auto">
     <div className="footer-sections">
        
         <div className="section">

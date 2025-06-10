@@ -3,7 +3,7 @@ import "../assets/Error.css"
 function Error() {
     return ( 
 
-        <div class="error-container">
+        <div class="error-content">
             <svg class="shopping-cart" viewBox="0 0 24 24" fill="none" stroke="#e53e3e" stroke-width="2">
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>

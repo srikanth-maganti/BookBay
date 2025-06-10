@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-function Registration() {
-    return ( 
-    <div>Registration</div>
+import Radio from '../components/Radio'
 
-     );
+function Registration()
+{
+    return (
+        <Radio/>
+    )
 }
 
-export default Registration;
+export default Registration

@@ -47,5 +47,5 @@ const sellerSchema=new mongoose.Schema({
 
 })
 
-const seller=mongoose.model("seller",sellerSchema);
-module.exports=seller;
+const Seller=mongoose.model("sellers",sellerSchema);
+module.exports=Seller;
